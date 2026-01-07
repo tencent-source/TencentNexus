@@ -27,6 +27,21 @@
     <!-- Favicon -->
     <link rel="icon" type="image/jpeg" href="https://data.phcorner.org/avatars/o/2699/2699812.jpg?1766775989">
     
+    <!-- Toast Notifications CSS -->
+    <link rel="stylesheet" href="toast.css">
+    
+    <!-- Google Analytics - Replace YOUR_GA_ID with your actual Google Analytics ID -->
+    <!-- Get your GA ID from: https://analytics.google.com -->
+    <!--
+    <script async src="https://www.googletagmanager.com/gtag/js?id=YOUR_GA_ID"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'YOUR_GA_ID');
+    </script>
+    -->
+    
     <style>
         * {
             margin: 0;
@@ -307,6 +322,54 @@
             text-shadow: 0 0 10px #00ff00;
         }
         
+        /* Statistics Dashboard */
+        .stats-dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+        
+        .stat-card {
+            background: rgba(20, 0, 10, 0.9);
+            border: 2px solid #ff0040;
+            border-radius: 8px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.3s;
+        }
+        
+        .stat-card:hover {
+            border-color: #ff4466;
+            box-shadow: 0 0 15px rgba(255, 0, 64, 0.4);
+            transform: translateY(-2px);
+        }
+        
+        .stat-icon {
+            font-size: 2em;
+            opacity: 0.8;
+        }
+        
+        .stat-content {
+            flex: 1;
+        }
+        
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #ff0040;
+            text-shadow: 0 0 10px #ff0040;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9em;
+            color: #ff4466;
+            opacity: 0.8;
+        }
+        
         /* Responsive */
         @media (max-width: 768px) {
             h1 {
@@ -325,11 +388,30 @@
             .link-actions button {
                 flex: 1;
             }
+            
+            .stats-dashboard {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .stat-card {
+                padding: 15px;
+            }
+            
+            .stat-icon {
+                font-size: 1.5em;
+            }
+            
+            .stat-value {
+                font-size: 1.4em;
+            }
         }
     </style>
 </head>
 <body>
     <canvas id="matrix-canvas"></canvas>
+    
+    <!-- Toast Container -->
+    <div class="toast-container" id="toast-container"></div>
     
     <div class="container">
         <header>
@@ -340,6 +422,12 @@
         <main>
             <div class="shortener-box">
                 <h2 style="margin-bottom: 20px; text-align: center;">Shorten Your URL</h2>
+                
+                <!-- Rate Limit Warning -->
+                <div id="rate-limit-warning" style="display: none; background: rgba(255, 170, 0, 0.1); border: 1px solid #ffaa00; border-radius: 5px; padding: 12px; margin-bottom: 15px; color: #ffaa00; font-size: 0.9em;">
+                    ⚠️ <span id="rate-limit-text">Rate limit: 60 requests/hour without GitHub token</span>
+                </div>
+                
                 <form id="shorten-form">
                     <div class="input-group">
                         <label for="long-url">Enter Long URL:</label>
@@ -364,19 +452,51 @@
             
             <div class="links-section">
                 <h2>📊 Your Shortened Links</h2>
+                
+                <!-- Statistics Dashboard -->
+                <div class="stats-dashboard" id="stats-dashboard">
+                    <div class="stat-card">
+                        <div class="stat-icon">🔗</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-total">0</div>
+                            <div class="stat-label">Total Links</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">👁️</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-clicks">0</div>
+                            <div class="stat-label">Total Clicks</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-popular">-</div>
+                            <div class="stat-label">Most Popular</div>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-content">
+                            <div class="stat-value" id="stat-recent">-</div>
+                            <div class="stat-label">Latest Link</div>
+                        </div>
+                    </div>
+                </div>
+                
                 <div id="links-list"></div>
             </div>
         </main>
         
         <footer>
-            <p>&copy; 2025 TencentNexus</p>
+            <p>&copy; 2025 TencentNexus | <a href="privacy.html" style="color: #ff0040;">Privacy</a> | <a href="terms.html" style="color: #ff0040;">Terms</a></p>
             <div class="creator-info">
                 <img src="https://data.phcorner.org/avatars/o/2699/2699812.jpg?1766775989" alt="Creator">
                 <div>
                     <p>Created by <a href="https://phcorner.org/members/pinoyakogago.2699812/" target="_blank">pinoyakogago</a></p>
                 </div>
             </div>
-            <p style="margin-top: 15px; font-size: 0.9em;"></p>
         </footer>
     </div>
     

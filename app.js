@@ -9,10 +9,13 @@ const CONFIG = {
     baseUrl: 'https://tencent-source.github.io/TencentNexus/' // Replace with your GitHub Pages URL
 };
 
-// Matrix Rain Effect
+// Matrix Rain Effect - Optimized for performance
 function initMatrixRain() {
     const canvas = document.getElementById('matrix-canvas');
     const ctx = canvas.getContext('2d');
+    
+    // Detect mobile devices
+    const isMobile = window.innerWidth < 768;
     
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
@@ -22,13 +25,17 @@ function initMatrixRain() {
     const nums = '0123456789';
     const alphabet = katakana + latin + nums;
     
-    const fontSize = 16;
+    // Optimize for mobile: larger fontSize = fewer columns = better performance
+    const fontSize = isMobile ? 20 : 16;
     const columns = canvas.width / fontSize;
     
     const rainDrops = [];
     for (let x = 0; x < columns; x++) {
         rainDrops[x] = 1;
     }
+    
+    // Slower refresh rate on mobile for better performance
+    const refreshRate = isMobile ? 50 : 30;
     
     function draw() {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
@@ -48,11 +55,20 @@ function initMatrixRain() {
         }
     }
     
-    setInterval(draw, 30);
+    const intervalId = setInterval(draw, refreshRate);
     
     window.addEventListener('resize', () => {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+    });
+    
+    // Pause animation when page is not visible (saves battery)
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            clearInterval(intervalId);
+        } else {
+            setInterval(draw, refreshRate);
+        }
     });
 }
 
@@ -81,11 +97,53 @@ class URLShortener {
         return !this.links.some(link => link.shortCode === alias);
     }
     
+    // Validate URL format and check for malicious patterns
+    validateUrl(url) {
+        try {
+            const urlObj = new URL(url);
+            
+            // Check for valid protocols
+            if (!['http:', 'https:'].includes(urlObj.protocol)) {
+                return { valid: false, error: 'Only HTTP and HTTPS URLs are allowed' };
+            }
+            
+            // Check for localhost/internal IPs (basic check)
+            if (urlObj.hostname === 'localhost' || urlObj.hostname === '127.0.0.1') {
+                return { valid: false, error: 'Cannot shorten localhost URLs' };
+            }
+            
+            // Check URL length
+            if (url.length > 2048) {
+                return { valid: false, error: 'URL is too long (max 2048 characters)' };
+            }
+            
+            return { valid: true };
+        } catch (error) {
+            return { valid: false, error: 'Invalid URL format' };
+        }
+    }
+    
     // Create short URL using GitHub Issues API
     async createShortUrl(longUrl, customAlias = '') {
         try {
             // Validate URL
-            new URL(longUrl);
+            const validation = this.validateUrl(longUrl);
+            if (!validation.valid) {
+                throw new Error(validation.error);
+            }
+            
+            // Validate custom alias format
+            if (customAlias) {
+                if (!/^[a-zA-Z0-9-_]+$/.test(customAlias)) {
+                    throw new Error('Custom alias can only contain letters, numbers, hyphens, and underscores');
+                }
+                if (customAlias.length < 3) {
+                    throw new Error('Custom alias must be at least 3 characters long');
+                }
+                if (customAlias.length > 50) {
+                    throw new Error('Custom alias is too long (max 50 characters)');
+                }
+            }
             
             // Generate or use custom short code
             let shortCode = customAlias || this.generateShortCode();
@@ -150,8 +208,19 @@ class URLShortener {
             body: JSON.stringify(body)
         });
         
+        // Update rate limit info
+        if (typeof rateLimitTracker !== 'undefined') {
+            rateLimitTracker.update(response.headers);
+        }
+        
         if (!response.ok) {
             const error = await response.json();
+            
+            // Check for rate limit error
+            if (response.status === 403 && error.message && error.message.includes('rate limit')) {
+                throw new Error('GitHub API rate limit exceeded. Please wait or add a GitHub token for higher limits.');
+            }
+            
             throw new Error(error.message || 'Failed to create short URL');
         }
         
@@ -202,14 +271,49 @@ class URLShortener {
     }
     
     deleteLink(shortCode) {
-        this.links = this.links.filter(link => link.shortCode !== shortCode);
-        this.saveLinks();
-        this.renderLinks();
+        if (confirm('Are you sure you want to delete this link?')) {
+            this.links = this.links.filter(link => link.shortCode !== shortCode);
+            this.saveLinks();
+            this.renderLinks();
+            toast.info('Link deleted', 2000);
+        }
+    }
+    
+    // Update statistics dashboard
+    updateStats() {
+        const totalLinks = this.links.length;
+        const totalClicks = this.links.reduce((sum, link) => sum + link.clicks, 0);
+        
+        // Find most popular link
+        let mostPopular = '-';
+        if (this.links.length > 0) {
+            const popular = this.links.reduce((max, link) => 
+                link.clicks > max.clicks ? link : max
+            );
+            if (popular.clicks > 0) {
+                mostPopular = popular.shortCode;
+            }
+        }
+        
+        // Get most recent link
+        let recentLink = '-';
+        if (this.links.length > 0) {
+            recentLink = this.links[0].shortCode;
+        }
+        
+        // Update UI
+        document.getElementById('stat-total').textContent = totalLinks;
+        document.getElementById('stat-clicks').textContent = totalClicks;
+        document.getElementById('stat-popular').textContent = mostPopular;
+        document.getElementById('stat-recent').textContent = recentLink;
     }
     
     // Render links list
     renderLinks() {
         const container = document.getElementById('links-list');
+        
+        // Update stats
+        this.updateStats();
         
         if (this.links.length === 0) {
             container.innerHTML = '<p style="text-align: center; color: #ff4466;">No links yet. Create your first one above!</p>';
@@ -241,40 +345,61 @@ const shortener = new URLShortener();
 document.getElementById('shorten-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     
-    const longUrl = document.getElementById('long-url').value;
-    const customAlias = document.getElementById('custom-alias').value;
+    const longUrl = document.getElementById('long-url').value.trim();
+    const customAlias = document.getElementById('custom-alias').value.trim();
     const submitBtn = e.target.querySelector('button[type="submit"]');
+    
+    // Validate inputs
+    if (!longUrl) {
+        toast.error('Please enter a URL to shorten');
+        return;
+    }
     
     // Disable button during processing
     submitBtn.disabled = true;
+    const originalText = submitBtn.textContent;
     submitBtn.textContent = '⏳ GENERATING...';
     
-    const result = await shortener.createShortUrl(longUrl, customAlias);
-    
-    submitBtn.disabled = false;
-    submitBtn.textContent = '🔗 GENERATE SHORT LINK';
-    
-    if (result.success) {
-        // Show result
-        document.getElementById('short-url-display').value = result.shortUrl;
-        document.getElementById('result-box').style.display = 'block';
+    try {
+        const result = await shortener.createShortUrl(longUrl, customAlias);
         
-        // Generate QR Code
-        const qrContainer = document.getElementById('qr-code');
-        qrContainer.innerHTML = '';
-        QRCode.toCanvas(result.shortUrl, { width: 200, margin: 2 }, (error, canvas) => {
-            if (!error) {
-                qrContainer.appendChild(canvas);
-            }
-        });
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
         
-        // Clear form
-        document.getElementById('shorten-form').reset();
-        
-        // Scroll to result
-        document.getElementById('result-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    } else {
-        alert('❌ Error: ' + result.error);
+        if (result.success) {
+            // Show success toast
+            toast.success('Short link created successfully!');
+            
+            // Show result
+            document.getElementById('short-url-display').value = result.shortUrl;
+            document.getElementById('result-box').style.display = 'block';
+            
+            // Generate QR Code
+            const qrContainer = document.getElementById('qr-code');
+            qrContainer.innerHTML = '<p style="text-align: center; color: #ff4466;">Generating QR code...</p>';
+            
+            QRCode.toCanvas(result.shortUrl, { width: 200, margin: 2 }, (error, canvas) => {
+                if (!error) {
+                    qrContainer.innerHTML = '';
+                    qrContainer.appendChild(canvas);
+                } else {
+                    qrContainer.innerHTML = '<p style="text-align: center; color: #ff0040;">Failed to generate QR code</p>';
+                }
+            });
+            
+            // Clear form
+            document.getElementById('shorten-form').reset();
+            
+            // Scroll to result
+            document.getElementById('result-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+            toast.error(result.error || 'Failed to create short link');
+        }
+    } catch (error) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        toast.error('An unexpected error occurred. Please try again.');
+        console.error(error);
     }
 });
 
@@ -282,25 +407,35 @@ document.getElementById('shorten-form').addEventListener('submit', async (e) => 
 function copyShortUrl() {
     const input = document.getElementById('short-url-display');
     input.select();
-    document.execCommand('copy');
     
-    const btn = event.target;
-    const originalText = btn.textContent;
-    btn.textContent = '✓ COPIED!';
-    setTimeout(() => {
-        btn.textContent = originalText;
-    }, 2000);
+    navigator.clipboard.writeText(input.value).then(() => {
+        toast.success('Link copied to clipboard!', 2000);
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓ COPIED!';
+        setTimeout(() => {
+            btn.textContent = originalText;
+        }, 2000);
+    }).catch(() => {
+        // Fallback for older browsers
+        document.execCommand('copy');
+        toast.success('Link copied to clipboard!', 2000);
+    });
 }
 
 // Copy to clipboard utility
 function copyToClipboard(text) {
     navigator.clipboard.writeText(text).then(() => {
+        toast.success('Link copied!', 2000);
         const btn = event.target;
         const originalText = btn.textContent;
         btn.textContent = '✓';
         setTimeout(() => {
             btn.textContent = originalText;
         }, 1000);
+    }).catch((error) => {
+        toast.error('Failed to copy to clipboard');
+        console.error('Copy failed:', error);
     });
 }
 
@@ -356,3 +491,117 @@ const script = document.createElement('script');
 script.type = 'application/ld+json';
 script.text = JSON.stringify(structuredData);
 document.head.appendChild(script);
+
+// Toast Notification System
+class ToastManager {
+    constructor() {
+        this.container = document.getElementById('toast-container');
+    }
+    
+    show(message, type = 'info', duration = 4000) {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+        
+        const icons = {
+            success: '✓',
+            error: '✗',
+            warning: '⚠',
+            info: 'ℹ'
+        };
+        
+        const titles = {
+            success: 'Success',
+            error: 'Error',
+            warning: 'Warning',
+            info: 'Info'
+        };
+        
+        toast.innerHTML = `
+            <div class="toast-icon">${icons[type]}</div>
+            <div class="toast-content">
+                <div class="toast-title">${titles[type]}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+            <button class="toast-close" onclick="this.parentElement.remove()">×</button>
+        `;
+        
+        this.container.appendChild(toast);
+        
+        // Auto remove after duration
+        setTimeout(() => {
+            toast.classList.add('removing');
+            setTimeout(() => toast.remove(), 300);
+        }, duration);
+    }
+    
+    success(message, duration) {
+        this.show(message, 'success', duration);
+    }
+    
+    error(message, duration) {
+        this.show(message, 'error', duration);
+    }
+    
+    warning(message, duration) {
+        this.show(message, 'warning', duration);
+    }
+    
+    info(message, duration) {
+        this.show(message, 'info', duration);
+    }
+}
+
+// Initialize toast manager
+const toast = new ToastManager();
+
+// Rate Limiting Information
+class RateLimitTracker {
+    constructor() {
+        this.resetTime = null;
+        this.remaining = null;
+        this.limit = null;
+    }
+    
+    update(headers) {
+        if (headers['x-ratelimit-limit']) {
+            this.limit = parseInt(headers['x-ratelimit-limit']);
+            this.remaining = parseInt(headers['x-ratelimit-remaining']);
+            this.resetTime = new Date(parseInt(headers['x-ratelimit-reset']) * 1000);
+            this.showWarning();
+        }
+    }
+    
+    showWarning() {
+        const warning = document.getElementById('rate-limit-warning');
+        const text = document.getElementById('rate-limit-text');
+        
+        if (this.remaining !== null) {
+            if (this.remaining < 10) {
+                warning.style.display = 'block';
+                warning.style.background = 'rgba(255, 0, 64, 0.1)';
+                warning.style.borderColor = '#ff0040';
+                text.textContent = `⚠️ Rate limit warning: Only ${this.remaining} requests remaining! Resets at ${this.resetTime.toLocaleTimeString()}`;
+            } else if (this.remaining < 30) {
+                warning.style.display = 'block';
+                text.textContent = `ℹ️ Rate limit: ${this.remaining}/${this.limit} requests remaining`;
+            } else {
+                warning.style.display = 'none';
+            }
+        } else {
+            // Show general info if no token
+            if (!CONFIG.githubToken) {
+                warning.style.display = 'block';
+                warning.style.background = 'rgba(0, 170, 255, 0.1)';
+                warning.style.borderColor = '#00aaff';
+                text.innerHTML = 'ℹ️ Rate limit: 60 requests/hour. <a href="https://github.com/settings/tokens" target="_blank" style="color: #00aaff; text-decoration: underline;">Add a GitHub token</a> for 5,000 requests/hour.';
+            }
+        }
+    }
+}
+
+const rateLimitTracker = new RateLimitTracker();
+
+// Show rate limit info on load
+document.addEventListener('DOMContentLoaded', () => {
+    rateLimitTracker.showWarning();
+});
