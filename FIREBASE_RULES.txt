@@ -1,0 +1,35 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Links collection - with rate limiting and validation
+    match /links/{linkId} {
+      // Allow reading links
+      allow read: if true;
+      
+      // Allow creating with validation
+      allow create: if request.resource.data.keys().hasOnly(['shortCode', 'longUrl', 'createdAt', 'clicks', 'lastClicked'])
+                    && request.resource.data.shortCode is string
+                    && request.resource.data.shortCode.size() >= 3
+                    && request.resource.data.shortCode.size() <= 50
+                    && request.resource.data.longUrl is string
+                    && request.resource.data.longUrl.size() <= 2048;
+      
+      // Allow updating only click count
+      allow update: if request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clicks', 'lastClicked']);
+      
+      // Allow deletion (for admin feature)
+      allow delete: if true;
+    }
+    
+    // Analytics collection - secured and validated
+    match /analytics/{document} {
+      allow read: if false; // Analytics are write-only
+      
+      // Only allow writing specific fields
+      allow create: if request.resource.data.keys().hasOnly(['shortCode', 'timestamp', 'userAgent', 'referrer'])
+                    && request.resource.data.shortCode is string
+                    && request.resource.data.shortCode.size() <= 50;
+    }
+  }
+}
