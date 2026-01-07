@@ -80,11 +80,13 @@ class URLShortener {
         this.renderLinks();
     }
     
-    // Generate short code
+    // Generate short code - shorter and more obfuscated
     generateShortCode() {
-        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        // Using all alphanumeric + some special chars for maximum obfuscation
+        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-';
         let code = '';
-        for (let i = 0; i < 6; i++) {
+        // Reduced from 6 to 4 characters = 14.7 million possible combinations
+        for (let i = 0; i < 4; i++) {
             code += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return code;
