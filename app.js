@@ -80,13 +80,13 @@ class URLShortener {
         this.renderLinks();
     }
     
-    // Generate short code - shorter and more obfuscated
+    // Generate short code - ultra compact and obfuscated
     generateShortCode() {
-        // Using all alphanumeric + some special chars for maximum obfuscation
-        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-';
+        // Using all alphanumeric for maximum obfuscation
+        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
         let code = '';
-        // Reduced from 6 to 4 characters = 14.7 million possible combinations
-        for (let i = 0; i < 4; i++) {
+        // 3 characters = 238,328 combinations (plenty for most use cases)
+        for (let i = 0; i < 3; i++) {
             code += chars.charAt(Math.floor(Math.random() * chars.length));
         }
         return code;
@@ -359,14 +359,33 @@ document.getElementById('shorten-form').addEventListener('submit', async (e) => 
             const qrContainer = document.getElementById('qr-code');
             qrContainer.innerHTML = '<p style="text-align: center; color: #ff4466;">Generating QR code...</p>';
             
-            QRCode.toCanvas(result.shortUrl, { width: 200, margin: 2 }, (error, canvas) => {
-                if (!error) {
-                    qrContainer.innerHTML = '';
-                    qrContainer.appendChild(canvas);
-                } else {
-                    qrContainer.innerHTML = '<p style="text-align: center; color: #ff0040;">Failed to generate QR code</p>';
+            // Check if QRCode library is loaded
+            if (typeof QRCode !== 'undefined') {
+                try {
+                    QRCode.toCanvas(result.shortUrl, { 
+                        width: 200, 
+                        margin: 2,
+                        color: {
+                            dark: '#ff0040',
+                            light: '#ffffff'
+                        }
+                    }, (error, canvas) => {
+                        if (!error && canvas) {
+                            qrContainer.innerHTML = '';
+                            qrContainer.appendChild(canvas);
+                        } else {
+                            console.error('QR generation error:', error);
+                            qrContainer.innerHTML = '<p style="text-align: center; color: #ff0040;">QR code generation failed</p>';
+                        }
+                    });
+                } catch (error) {
+                    console.error('QR code error:', error);
+                    qrContainer.innerHTML = '<p style="text-align: center; color: #ff0040;">QR code error</p>';
                 }
-            });
+            } else {
+                console.error('QRCode library not loaded');
+                qrContainer.innerHTML = '<p style="text-align: center; color: #ff0040;">QR library not loaded. Refresh the page.</p>';
+            }
             
             // Clear form
             document.getElementById('shorten-form').reset();
