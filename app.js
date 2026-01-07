@@ -97,6 +97,25 @@ class URLShortener {
         return !this.links.some(link => link.shortCode === alias);
     }
     
+    // Malicious domain blacklist
+    getMaliciousDomains() {
+        return [
+            'bit.ly/phish', 'tinyurl.com/scam', // Known malicious patterns
+            'localhost', '127.0.0.1', '0.0.0.0', // Local addresses
+            '192.168.', '10.0.', '172.16.' // Private networks
+        ];
+    }
+    
+    // Check if URL contains sensitive keywords
+    containsSensitiveKeywords(url) {
+        const sensitiveKeywords = [
+            'password', 'reset', 'login', 'admin', 'token', 'api-key',
+            'secret', 'private', 'confidential', 'internal', 'auth'
+        ];
+        const lowerUrl = url.toLowerCase();
+        return sensitiveKeywords.some(keyword => lowerUrl.includes(keyword));
+    }
+    
     // Validate URL format and check for malicious patterns
     validateUrl(url) {
         try {
@@ -107,14 +126,31 @@ class URLShortener {
                 return { valid: false, error: 'Only HTTP and HTTPS URLs are allowed' };
             }
             
-            // Check for localhost/internal IPs (basic check)
-            if (urlObj.hostname === 'localhost' || urlObj.hostname === '127.0.0.1') {
+            // Check for localhost/internal IPs
+            const hostname = urlObj.hostname.toLowerCase();
+            if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '0.0.0.0') {
                 return { valid: false, error: 'Cannot shorten localhost URLs' };
+            }
+            
+            // Check for private network IPs
+            if (hostname.startsWith('192.168.') || hostname.startsWith('10.') || hostname.startsWith('172.16.')) {
+                return { valid: false, error: 'Cannot shorten private network URLs' };
+            }
+            
+            // Check for malicious domains
+            const maliciousDomains = this.getMaliciousDomains();
+            if (maliciousDomains.some(domain => hostname.includes(domain))) {
+                return { valid: false, error: 'This domain is not allowed' };
             }
             
             // Check URL length
             if (url.length > 2048) {
                 return { valid: false, error: 'URL is too long (max 2048 characters)' };
+            }
+            
+            // Warn about sensitive URLs
+            if (this.containsSensitiveKeywords(url)) {
+                document.getElementById('security-warning').style.display = 'block';
             }
             
             return { valid: true };
@@ -251,12 +287,23 @@ class URLShortener {
         return saved ? JSON.parse(saved) : [];
     }
     
-    deleteLink(shortCode) {
+    async deleteLink(shortCode) {
         if (confirm('Are you sure you want to delete this link?')) {
-            this.links = this.links.filter(link => link.shortCode !== shortCode);
-            this.saveLinks();
-            this.renderLinks();
-            toast.info('Link deleted', 2000);
+            try {
+                // Delete from Firebase
+                if (window.db) {
+                    await window.db.collection('links').doc(shortCode).delete();
+                    toast.success('Link deleted from database', 2000);
+                }
+                
+                // Delete from local storage
+                this.links = this.links.filter(link => link.shortCode !== shortCode);
+                this.saveLinks();
+                this.renderLinks();
+            } catch (error) {
+                console.error('Delete error:', error);
+                toast.error('Failed to delete link. Try again.');
+            }
         }
     }
     
