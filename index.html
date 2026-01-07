@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <!-- SEO Meta Tags -->
+    <title>TencentNexus - Anime Hacker URL Shortener | Free Link Shortening Service</title>
+    <meta name="description" content="TencentNexus: A free, anime-themed URL shortener with dark red hacker aesthetics. Shorten links, generate QR codes, and track analytics. Perfect for social media and sharing.">
+    <meta name="keywords" content="url shortener, link shortener, anime, cyberpunk, free url shortener, qr code generator, tencent nexus, short links">
+    <meta name="author" content="pinoyakogago">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://yourusername.github.io/TencentNexus/">
+    
+    <!-- Open Graph Tags -->
+    <meta property="og:title" content="TencentNexus - Anime Hacker URL Shortener">
+    <meta property="og:description" content="Free anime-themed URL shortener with dark red hacker aesthetics. Shorten links instantly!">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://yourusername.github.io/TencentNexus/">
+    <meta property="og:image" content="https://data.phcorner.org/avatars/o/2699/2699812.jpg?1766775989">
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="TencentNexus - Anime Hacker URL Shortener">
+    <meta name="twitter:description" content="Free anime-themed URL shortener with cyberpunk aesthetics">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/jpeg" href="https://data.phcorner.org/avatars/o/2699/2699812.jpg?1766775989">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0a0a0a;
+            color: #ff0040;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        /* Matrix Rain Effect */
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            opacity: 0.3;
+        }
+        
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        
+        /* Header */
+        header {
+            text-align: center;
+            padding: 40px 0;
+            border-bottom: 2px solid #ff0040;
+            margin-bottom: 40px;
+            animation: glitch 3s infinite;
+        }
+        
+        @keyframes glitch {
+            0%, 90%, 100% { transform: translate(0); }
+            92% { transform: translate(-2px, 2px); }
+            94% { transform: translate(2px, -2px); }
+            96% { transform: translate(-2px, -2px); }
+        }
+        
+        h1 {
+            font-size: 3em;
+            text-shadow: 
+                0 0 10px #ff0040,
+                0 0 20px #ff0040,
+                0 0 30px #ff0040;
+            margin-bottom: 10px;
+        }
+        
+        .tagline {
+            color: #ff4466;
+            font-size: 1.2em;
+            text-shadow: 0 0 5px #ff0040;
+        }
+        
+        /* Main Form */
+        .shortener-box {
+            background: rgba(20, 0, 10, 0.9);
+            border: 2px solid #ff0040;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 
+                0 0 20px rgba(255, 0, 64, 0.5),
+                inset 0 0 20px rgba(255, 0, 64, 0.1);
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            text-transform: uppercase;
+            font-size: 0.9em;
+        }
+        
+        input[type="url"],
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            background: #1a0a0f;
+            border: 2px solid #ff0040;
+            color: #ff4466;
+            font-family: 'Courier New', monospace;
+            font-size: 1em;
+            border-radius: 5px;
+            transition: all 0.3s;
+        }
+        
+        input:focus {
+            outline: none;
+            box-shadow: 0 0 15px rgba(255, 0, 64, 0.8);
+            background: #250a15;
+        }
+        
+        button {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #ff0040, #cc0033);
+            border: none;
+            color: white;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1em;
+            font-weight: bold;
+            text-transform: uppercase;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: all 0.3s;
+            box-shadow: 0 0 20px rgba(255, 0, 64, 0.5);
+        }
+        
+        button:hover {
+            background: linear-gradient(135deg, #cc0033, #ff0040);
+            box-shadow: 0 0 30px rgba(255, 0, 64, 0.8);
+            transform: translateY(-2px);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        /* Result Box */
+        #result-box {
+            display: none;
+            background: rgba(20, 0, 10, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 30px;
+            animation: slideIn 0.5s;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .short-url {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .short-url input {
+            flex: 1;
+            background: #0f0f0f;
+            border-color: #00ff00;
+            color: #00ff00;
+        }
+        
+        .copy-btn {
+            width: auto;
+            padding: 10px 20px;
+            background: #00ff00;
+            color: #000;
+        }
+        
+        #qr-code {
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        #qr-code canvas {
+            border: 2px solid #ff0040;
+            padding: 10px;
+            background: white;
+            border-radius: 5px;
+        }
+        
+        /* Links List */
+        .links-section {
+            margin-top: 40px;
+        }
+        
+        .links-section h2 {
+            margin-bottom: 20px;
+            text-align: center;
+            text-shadow: 0 0 10px #ff0040;
+        }
+        
+        .link-item {
+            background: rgba(20, 0, 10, 0.9);
+            border: 1px solid #ff0040;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        
+        .link-item:hover {
+            border-color: #ff4466;
+            box-shadow: 0 0 10px rgba(255, 0, 64, 0.3);
+        }
+        
+        .link-info {
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        .link-info .short {
+            color: #00ff00;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .link-info .original {
+            color: #ff4466;
+            font-size: 0.9em;
+            word-break: break-all;
+        }
+        
+        .link-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .link-actions button {
+            width: auto;
+            padding: 8px 15px;
+            font-size: 0.9em;
+        }
+        
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 30px 0;
+            margin-top: 50px;
+            border-top: 2px solid #ff0040;
+            color: #ff4466;
+        }
+        
+        .creator-info {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .creator-info img {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 2px solid #ff0040;
+        }
+        
+        .creator-info a {
+            color: #ff0040;
+            text-decoration: none;
+            transition: all 0.3s;
+        }
+        
+        .creator-info a:hover {
+            color: #00ff00;
+            text-shadow: 0 0 10px #00ff00;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2em;
+            }
+            
+            .link-item {
+                flex-direction: column;
+                gap: 15px;
+            }
+            
+            .link-actions {
+                width: 100%;
+            }
+            
+            .link-actions button {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="matrix-canvas"></canvas>
+    
+    <div class="container">
+        <header>
+            <h1>⚡ TENCENT NEXUS ⚡</h1>
+            <p class="tagline">// Anime Hacker URL Shortener //</p>
+        </header>
+        
+        <main>
+            <div class="shortener-box">
+                <h2 style="margin-bottom: 20px; text-align: center;">Shorten Your URL</h2>
+                <form id="shorten-form">
+                    <div class="input-group">
+                        <label for="long-url">Enter Long URL:</label>
+                        <input type="url" id="long-url" placeholder="https://example.com/very/long/url" required>
+                    </div>
+                    <div class="input-group">
+                        <label for="custom-alias">Custom Alias (Optional):</label>
+                        <input type="text" id="custom-alias" placeholder="my-custom-link" pattern="[a-zA-Z0-9-_]*">
+                    </div>
+                    <button type="submit">🔗 GENERATE SHORT LINK</button>
+                </form>
+            </div>
+            
+            <div id="result-box">
+                <h3 style="margin-bottom: 15px; text-align: center; color: #00ff00;">✓ Link Generated!</h3>
+                <div class="short-url">
+                    <input type="text" id="short-url-display" readonly>
+                    <button class="copy-btn" onclick="copyShortUrl()">📋 COPY</button>
+                </div>
+                <div id="qr-code"></div>
+            </div>
+            
+            <div class="links-section">
+                <h2>📊 Your Shortened Links</h2>
+                <div id="links-list"></div>
+            </div>
+        </main>
+        
+        <footer>
+            <p>&copy; 2025 TencentNexus | Free URL Shortener</p>
+            <div class="creator-info">
+                <img src="https://data.phcorner.org/avatars/o/2699/2699812.jpg?1766775989" alt="Creator">
+                <div>
+                    <p>Created by <a href="https://phcorner.org/members/pinoyakogago.2699812/" target="_blank">pinoyakogago</a></p>
+                </div>
+            </div>
+            <p style="margin-top: 15px; font-size: 0.9em;">Built with ❤️ and ☕</p>
+        </footer>
+    </div>
+    
+    <!-- QR Code Library -->
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+    
+    <script src="app.js"></script>
+</body>
+</html>

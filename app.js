@@ -1,0 +1,358 @@
+// TencentNexus - URL Shortener with GitHub Issues API Backend
+// OPSEC: No sensitive data, client-side only with GitHub API
+
+// Configuration - USER MUST UPDATE THESE
+const CONFIG = {
+    githubOwner: 'YOUR_GITHUB_USERNAME', // Replace with your GitHub username
+    githubRepo: 'TencentNexus',          // Your repository name
+    githubToken: '',                      // Optional: GitHub Personal Access Token (for higher rate limits)
+    baseUrl: 'https://YOUR_GITHUB_USERNAME.github.io/TencentNexus/' // Replace with your GitHub Pages URL
+};
+
+// Matrix Rain Effect
+function initMatrixRain() {
+    const canvas = document.getElementById('matrix-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    const katakana = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
+    const latin = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const nums = '0123456789';
+    const alphabet = katakana + latin + nums;
+    
+    const fontSize = 16;
+    const columns = canvas.width / fontSize;
+    
+    const rainDrops = [];
+    for (let x = 0; x < columns; x++) {
+        rainDrops[x] = 1;
+    }
+    
+    function draw() {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#ff0040';
+        ctx.font = fontSize + 'px monospace';
+        
+        for (let i = 0; i < rainDrops.length; i++) {
+            const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+            ctx.fillText(text, i * fontSize, rainDrops[i] * fontSize);
+            
+            if (rainDrops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+                rainDrops[i] = 0;
+            }
+            rainDrops[i]++;
+        }
+    }
+    
+    setInterval(draw, 30);
+    
+    window.addEventListener('resize', () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    });
+}
+
+// Initialize on load
+initMatrixRain();
+
+// URL Shortening Logic
+class URLShortener {
+    constructor() {
+        this.links = this.loadLinks();
+        this.renderLinks();
+    }
+    
+    // Generate short code
+    generateShortCode() {
+        const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let code = '';
+        for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return code;
+    }
+    
+    // Check if custom alias is available
+    isAliasAvailable(alias) {
+        return !this.links.some(link => link.shortCode === alias);
+    }
+    
+    // Create short URL using GitHub Issues API
+    async createShortUrl(longUrl, customAlias = '') {
+        try {
+            // Validate URL
+            new URL(longUrl);
+            
+            // Generate or use custom short code
+            let shortCode = customAlias || this.generateShortCode();
+            
+            // Check if alias is available
+            if (!this.isAliasAvailable(shortCode)) {
+                throw new Error('Custom alias already exists. Please choose another.');
+            }
+            
+            // Create GitHub Issue
+            const issue = await this.createGitHubIssue(shortCode, longUrl);
+            
+            // Save link locally
+            const linkData = {
+                shortCode: shortCode,
+                longUrl: longUrl,
+                createdAt: new Date().toISOString(),
+                clicks: 0,
+                issueNumber: issue.number
+            };
+            
+            this.links.unshift(linkData);
+            this.saveLinks();
+            this.renderLinks();
+            
+            return {
+                success: true,
+                shortUrl: CONFIG.baseUrl + '?' + shortCode,
+                shortCode: shortCode
+            };
+        } catch (error) {
+            console.error('Error creating short URL:', error);
+            return {
+                success: false,
+                error: error.message
+            };
+        }
+    }
+    
+    // Create GitHub Issue to store URL mapping
+    async createGitHubIssue(shortCode, longUrl) {
+        const url = `https://api.github.com/repos/${CONFIG.githubOwner}/${CONFIG.githubRepo}/issues`;
+        
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/vnd.github.v3+json'
+        };
+        
+        if (CONFIG.githubToken) {
+            headers['Authorization'] = `token ${CONFIG.githubToken}`;
+        }
+        
+        const body = {
+            title: `[LINK] ${shortCode}`,
+            body: `**Short Code:** ${shortCode}\n**Long URL:** ${longUrl}\n**Created:** ${new Date().toISOString()}\n\n---\n*Auto-generated by TencentNexus URL Shortener*`,
+            labels: ['url-shortener', 'active']
+        };
+        
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify(body)
+        });
+        
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.message || 'Failed to create short URL');
+        }
+        
+        return await response.json();
+    }
+    
+    // Get long URL from short code
+    async getLongUrl(shortCode) {
+        // First check local storage
+        const localLink = this.links.find(link => link.shortCode === shortCode);
+        if (localLink) {
+            localLink.clicks++;
+            this.saveLinks();
+            return localLink.longUrl;
+        }
+        
+        // Fallback: Query GitHub Issues
+        try {
+            const url = `https://api.github.com/repos/${CONFIG.githubOwner}/${CONFIG.githubRepo}/issues?labels=url-shortener&state=open`;
+            const response = await fetch(url);
+            
+            if (response.ok) {
+                const issues = await response.json();
+                const issue = issues.find(i => i.title === `[LINK] ${shortCode}`);
+                
+                if (issue) {
+                    const urlMatch = issue.body.match(/\*\*Long URL:\*\* (.+)/);
+                    if (urlMatch) {
+                        return urlMatch[1];
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching from GitHub:', error);
+        }
+        
+        return null;
+    }
+    
+    // Local Storage Management
+    saveLinks() {
+        localStorage.setItem('tencentnexus_links', JSON.stringify(this.links));
+    }
+    
+    loadLinks() {
+        const saved = localStorage.getItem('tencentnexus_links');
+        return saved ? JSON.parse(saved) : [];
+    }
+    
+    deleteLink(shortCode) {
+        this.links = this.links.filter(link => link.shortCode !== shortCode);
+        this.saveLinks();
+        this.renderLinks();
+    }
+    
+    // Render links list
+    renderLinks() {
+        const container = document.getElementById('links-list');
+        
+        if (this.links.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: #ff4466;">No links yet. Create your first one above!</p>';
+            return;
+        }
+        
+        container.innerHTML = this.links.map(link => `
+            <div class="link-item">
+                <div class="link-info">
+                    <div class="short">${CONFIG.baseUrl}?${link.shortCode}</div>
+                    <div class="original">${link.longUrl}</div>
+                    <div style="font-size: 0.8em; color: #888; margin-top: 5px;">
+                        👁️ ${link.clicks} clicks | 📅 ${new Date(link.createdAt).toLocaleDateString()}
+                    </div>
+                </div>
+                <div class="link-actions">
+                    <button onclick="copyToClipboard('${CONFIG.baseUrl}?${link.shortCode}')">📋</button>
+                    <button onclick="shortener.deleteLink('${link.shortCode}')">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+}
+
+// Initialize shortener
+const shortener = new URLShortener();
+
+// Handle form submission
+document.getElementById('shorten-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const longUrl = document.getElementById('long-url').value;
+    const customAlias = document.getElementById('custom-alias').value;
+    const submitBtn = e.target.querySelector('button[type="submit"]');
+    
+    // Disable button during processing
+    submitBtn.disabled = true;
+    submitBtn.textContent = '⏳ GENERATING...';
+    
+    const result = await shortener.createShortUrl(longUrl, customAlias);
+    
+    submitBtn.disabled = false;
+    submitBtn.textContent = '🔗 GENERATE SHORT LINK';
+    
+    if (result.success) {
+        // Show result
+        document.getElementById('short-url-display').value = result.shortUrl;
+        document.getElementById('result-box').style.display = 'block';
+        
+        // Generate QR Code
+        const qrContainer = document.getElementById('qr-code');
+        qrContainer.innerHTML = '';
+        QRCode.toCanvas(result.shortUrl, { width: 200, margin: 2 }, (error, canvas) => {
+            if (!error) {
+                qrContainer.appendChild(canvas);
+            }
+        });
+        
+        // Clear form
+        document.getElementById('shorten-form').reset();
+        
+        // Scroll to result
+        document.getElementById('result-box').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } else {
+        alert('❌ Error: ' + result.error);
+    }
+});
+
+// Copy short URL to clipboard
+function copyShortUrl() {
+    const input = document.getElementById('short-url-display');
+    input.select();
+    document.execCommand('copy');
+    
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '✓ COPIED!';
+    setTimeout(() => {
+        btn.textContent = originalText;
+    }, 2000);
+}
+
+// Copy to clipboard utility
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = event.target;
+        const originalText = btn.textContent;
+        btn.textContent = '✓';
+        setTimeout(() => {
+            btn.textContent = originalText;
+        }, 1000);
+    });
+}
+
+// Handle URL redirection on page load
+window.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const keys = Array.from(urlParams.keys());
+    
+    if (keys.length > 0) {
+        const shortCode = keys[0];
+        
+        // Show loading
+        document.body.innerHTML = `
+            <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column;">
+                <h1 style="color: #ff0040; text-shadow: 0 0 20px #ff0040;">⏳ Redirecting...</h1>
+                <p style="color: #ff4466; margin-top: 20px;">Please wait...</p>
+            </div>
+        `;
+        
+        const longUrl = await shortener.getLongUrl(shortCode);
+        
+        if (longUrl) {
+            window.location.href = longUrl;
+        } else {
+            document.body.innerHTML = `
+                <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column;">
+                    <h1 style="color: #ff0040; text-shadow: 0 0 20px #ff0040;">❌ Link Not Found</h1>
+                    <p style="color: #ff4466; margin-top: 20px;">This short link doesn't exist.</p>
+                    <a href="${CONFIG.baseUrl}" style="color: #ff0040; margin-top: 30px; text-decoration: none; border: 2px solid #ff0040; padding: 10px 20px; border-radius: 5px;">← Back to Home</a>
+                </div>
+            `;
+        }
+    }
+});
+
+// Schema.org structured data for SEO
+const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "TencentNexus",
+    "description": "Free anime-themed URL shortener with dark red hacker aesthetics",
+    "url": CONFIG.baseUrl,
+    "applicationCategory": "UtilityApplication",
+    "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+    }
+};
+
+// Inject structured data
+const script = document.createElement('script');
+script.type = 'application/ld+json';
+script.text = JSON.stringify(structuredData);
+document.head.appendChild(script);

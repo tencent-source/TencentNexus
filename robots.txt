@@ -1,0 +1,13 @@
+# TencentNexus - Robots.txt for SEO
+
+User-agent: *
+Allow: /
+
+# Sitemap location (update with your actual URL)
+Sitemap: https://YOUR_USERNAME.github.io/TencentNexus/sitemap.xml
+
+# Allow search engines to index everything
+Disallow:
+
+# Crawl-delay (be nice to servers)
+Crawl-delay: 1
