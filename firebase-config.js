@@ -9,19 +9,30 @@ const firebaseConfig = {
   measurementId: "G-EB85DL50GX"
 };
 
-// Initialize Firebase
-let db;
+// Initialize Firebase - make db globally accessible
+window.db = null;
 
 function initFirebase() {
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.firestore();
-    console.log('🔥 Firebase initialized successfully!');
+    try {
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        window.db = firebase.firestore();
+        console.log('🔥 Firebase initialized successfully!');
+    } catch (error) {
+        console.error('Firebase initialization error:', error);
+    }
 }
 
-// Initialize on load
+// Wait for Firebase SDK to load
 if (typeof firebase !== 'undefined') {
     initFirebase();
 } else {
-    console.error('Firebase SDK not loaded');
+    // Wait for Firebase to load
+    window.addEventListener('load', function() {
+        if (typeof firebase !== 'undefined') {
+            initFirebase();
+        } else {
+            console.error('Firebase SDK not loaded');
+        }
+    });
 }

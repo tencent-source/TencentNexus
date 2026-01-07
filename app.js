@@ -126,6 +126,10 @@ class URLShortener {
     // Create short URL with Firebase (works for everyone!)
     async createShortUrl(longUrl, customAlias = '') {
         try {
+            // Check if Firebase is initialized
+            if (!window.db) {
+                throw new Error('Database not initialized. Please refresh the page.');
+            }
             // Validate URL
             const validation = this.validateUrl(longUrl);
             if (!validation.valid) {
@@ -149,7 +153,7 @@ class URLShortener {
             let shortCode = customAlias || this.generateShortCode();
             
             // Check if alias is available in Firebase
-            const existingDoc = await db.collection('links').doc(shortCode).get();
+            const existingDoc = await window.db.collection('links').doc(shortCode).get();
             if (existingDoc.exists) {
                 throw new Error('Custom alias already exists. Please choose another.');
             }
@@ -163,7 +167,7 @@ class URLShortener {
                 lastClicked: null
             };
             
-            await db.collection('links').doc(shortCode).set(linkData);
+            await window.db.collection('links').doc(shortCode).set(linkData);
             
             // Also save locally for quick access
             const localData = {
@@ -194,7 +198,11 @@ class URLShortener {
     // Get long URL from Firebase (works for everyone!)
     async getLongUrl(shortCode) {
         try {
-            const docRef = db.collection('links').doc(shortCode);
+            if (!window.db) {
+                throw new Error('Database not initialized');
+            }
+            
+            const docRef = window.db.collection('links').doc(shortCode);
             const doc = await docRef.get();
             
             if (doc.exists) {
@@ -207,7 +215,7 @@ class URLShortener {
                 });
                 
                 // Also track in analytics collection
-                await db.collection('analytics').add({
+                await window.db.collection('analytics').add({
                     shortCode: shortCode,
                     timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                     userAgent: navigator.userAgent,
