@@ -3,10 +3,10 @@
 
 // Configuration - USER MUST UPDATE THESE
 const CONFIG = {
-    githubOwner: 'expert-utility-hub', // Replace with your GitHub username
+    githubOwner: 'tencent-source', // Replace with your GitHub username
     githubRepo: 'TencentNexus',          // Your repository name
     githubToken: '',                      // Optional: GitHub Personal Access Token (for higher rate limits)
-    baseUrl: 'https://expert-utility-hub.github.io/TencentNexus/' // Replace with your GitHub Pages URL
+    baseUrl: 'https://tencent-source.github.io/TencentNexus/' // Replace with your GitHub Pages URL
 };
 
 // Matrix Rain Effect

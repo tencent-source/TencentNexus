@@ -4,7 +4,7 @@ User-agent: *
 Allow: /
 
 # Sitemap location (update with your actual URL)
-Sitemap: https://expert-utility-hub.github.io/TencentNexus/sitemap.xml
+Sitemap: https://tencent-source.github.io/TencentNexus/sitemap.xml
 
 # Allow search engines to index everything
 Disallow:
