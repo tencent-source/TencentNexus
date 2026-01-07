@@ -1,6 +1,6 @@
-// TencentNexus - URL Shortener with LocalStorage Backend
-// OPSEC: No backend server, no API, all data stored in browser
-// Links work only on your device - privacy-first design!
+// TencentNexus - URL Shortener with Firebase Backend
+// Professional URL shortener - compete with Bitly!
+// Links work for everyone, everywhere, forever!
 
 // Configuration
 const CONFIG = {
@@ -121,7 +121,7 @@ class URLShortener {
         }
     }
     
-    // Create short URL (localStorage only - no backend needed!)
+    // Create short URL with Firebase (works for everyone!)
     async createShortUrl(longUrl, customAlias = '') {
         try {
             // Validate URL
@@ -146,20 +146,32 @@ class URLShortener {
             // Generate or use custom short code
             let shortCode = customAlias || this.generateShortCode();
             
-            // Check if alias is available
-            if (!this.isAliasAvailable(shortCode)) {
+            // Check if alias is available in Firebase
+            const existingDoc = await db.collection('links').doc(shortCode).get();
+            if (existingDoc.exists) {
                 throw new Error('Custom alias already exists. Please choose another.');
             }
             
-            // Save link locally (no backend needed!)
+            // Save to Firebase
             const linkData = {
+                shortCode: shortCode,
+                longUrl: longUrl,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                clicks: 0,
+                lastClicked: null
+            };
+            
+            await db.collection('links').doc(shortCode).set(linkData);
+            
+            // Also save locally for quick access
+            const localData = {
                 shortCode: shortCode,
                 longUrl: longUrl,
                 createdAt: new Date().toISOString(),
                 clicks: 0
             };
             
-            this.links.unshift(linkData);
+            this.links.unshift(localData);
             this.saveLinks();
             this.renderLinks();
             
@@ -177,18 +189,46 @@ class URLShortener {
         }
     }
     
-    // No backend needed - everything stored in localStorage!
-    
-    // Get long URL from short code (localStorage only)
+    // Get long URL from Firebase (works for everyone!)
     async getLongUrl(shortCode) {
-        const localLink = this.links.find(link => link.shortCode === shortCode);
-        if (localLink) {
-            localLink.clicks++;
-            this.saveLinks();
-            return localLink.longUrl;
+        try {
+            const docRef = db.collection('links').doc(shortCode);
+            const doc = await docRef.get();
+            
+            if (doc.exists) {
+                const data = doc.data();
+                
+                // Increment click counter
+                await docRef.update({
+                    clicks: firebase.firestore.FieldValue.increment(1),
+                    lastClicked: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Also track in analytics collection
+                await db.collection('analytics').add({
+                    shortCode: shortCode,
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                    userAgent: navigator.userAgent,
+                    referrer: document.referrer
+                });
+                
+                return data.longUrl;
+            }
+            
+            return null;
+        } catch (error) {
+            console.error('Error fetching from Firebase:', error);
+            
+            // Fallback to localStorage
+            const localLink = this.links.find(link => link.shortCode === shortCode);
+            if (localLink) {
+                localLink.clicks++;
+                this.saveLinks();
+                return localLink.longUrl;
+            }
+            
+            return null;
         }
-        
-        return null;
     }
     
     // Local Storage Management
